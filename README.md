@@ -22,9 +22,9 @@ agent không chắc.
 
 DeepSeek V4.1 Flash chạy trên tập dữ liệu của cuộc thi Zalo AI.
 
-| Tập | Số câu | Đúng / Sai / Bỏ | PA |
-|---|---:|---:|---:|
-| Public test | 1000 | — | **0.915** |
+| Tập | Số câu | PA |
+|---|---:|---:|
+| Public test | 1000 | **0.915** |
 
 ## Cài đặt và chạy
 
