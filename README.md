@@ -26,7 +26,7 @@ DeepSeek V4.1 Flash chạy trên tập dữ liệu của cuộc thi Zalo AI.
 |---|---:|---:|---:|
 | Dev | 60 | 60 / 0 / 0 | **1.000** |
 | Holdout | 30 | 28 / 1 / 1 | 0.900 |
-| Public test | 1000 | — | 0.793 |
+| Public test | 1000 | — | 0.915 |
 
 ## Cài đặt và chạy
 
