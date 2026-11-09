@@ -1,0 +1,22 @@
+# Model weights: file vài GB, GitHub từ chối file > 100 MB
+/models/
+*.safetensors
+*.gguf
+
+# Môi trường và cache Python, tạo lại được trên từng máy
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Rác hệ điều hành
+.DS_Store
+__MACOSX/
+
+# Kết quả chạy agent: submission, log, trace (lớn, sinh lại được)
+/outputs/
+
+# Khoá API, không commit
+.env
