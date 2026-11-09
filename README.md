@@ -24,9 +24,7 @@ DeepSeek V4.1 Flash chạy trên tập dữ liệu của cuộc thi Zalo AI.
 
 | Tập | Số câu | Đúng / Sai / Bỏ | PA |
 |---|---:|---:|---:|
-| Dev | 60 | 60 / 0 / 0 | **1.000** |
-| Holdout | 30 | 28 / 1 / 1 | 0.900 |
-| Public test | 1000 | — | 0.915 |
+| Public test | 1000 | — | **0.915** |
 
 ## Cài đặt và chạy
 
@@ -97,12 +95,6 @@ src/datamate/
 scripts/            run.py, score.py, check_submission.py, tune_thresholds.py, count_params.py
 Dockerfile, docker/run.sh
 ```
-
-## Hạn chế
-
-- Ngưỡng abstain được chọn trên tập dev, nên kết quả trên dev lạc quan hơn thực tế.
-- Prompt và luật viết bằng tiếng Việt. Agent cần dữ liệu đúng định dạng ở mục Định dạng.
-- Chạy vLLM với model thật cần GPU.
 
 ## Giấy phép
 
