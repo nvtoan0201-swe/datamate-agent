@@ -26,6 +26,24 @@ nên việc biết khi nào bỏ quan trọng ngang việc trả lời đúng.
 - Chưa có điểm trên public test cho cấu hình này.
 - Các lần chạy dùng model trên 15B tham số không được tính là kết quả của solution.
 
+### Tham chiếu: model trên 15B (không hợp lệ cho solution)
+
+Các lần chạy dưới đây dùng **DeepSeek V4.1 Flash**, model vượt giới hạn 15B tham số của cuộc thi. Chúng cho thấy
+trần của pipeline khi có model mạnh. Đây **không phải** điểm của solution.
+
+| Split | Số câu | Cấu hình | Đúng / Sai / Bỏ | PA |
+|---|---:|---|---:|---:|
+| train dev | 60 | pipeline v2 sau sửa grain | 60 / 0 / 0 | 1.000 |
+| train holdout | 30 | cùng cấu hình | 28 / 1 / 1 | 0.900 |
+| train, split đột biến (7 shop dev) | 21 | pipeline v2 | 20 / 0 / 1 | 0.952 |
+| public test (portal) | 1000 | pipeline v2 sau sửa trạng thái và bảng giao dịch | — | 0.793 |
+
+- Cùng cấu hình, sau một đợt đổi code khác, holdout còn 0.867 (28 / 2 / 0). Dev và holdout chỉ có 60 và 30 câu,
+  nên sai số lớn.
+- Điểm portal trên 1000 câu thấp hơn dev và holdout đáng kể. Dev và holdout nhỏ nên không đại diện cho public.
+- Cùng pipeline với Qwen3.5-9B (≤15B) chỉ đạt 0.467 trên dev. Nút thắt là bước planner của semantic graph,
+  không phải phần sinh code.
+
 ## Kiến trúc
 
 1. **Nạp dữ liệu.** Đọc mọi file của một shop thành DataFrame sạch: dò header lệch dòng, gộp sheet và file theo tháng,
