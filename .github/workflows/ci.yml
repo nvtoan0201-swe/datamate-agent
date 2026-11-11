@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Cài môi trường (Python theo .python-version, đúng uv.lock)
+        run: uv sync --frozen
+
+      - name: Ruff
+        run: uv run ruff check
+
+      - name: Pytest (shop synthetic + LLM giả, không cần mạng tới LLM)
+        run: uv run pytest -q
+
+      - name: Kiểm cú pháp entrypoint Docker
+        run: bash -n docker/run.sh
