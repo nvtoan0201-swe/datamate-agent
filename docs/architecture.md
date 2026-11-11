@@ -41,3 +41,16 @@ flowchart TD
 - **Hàm nghiệp vụ** (`biz.py`): thư viện `dm` cho code do LLM viết, ví dụ `dm.orders()`, `dm.sold_lines()`.
 - **Verifier** (`agent/verifier.py`): so kết quả của các cơ chế, kiểm tra và quyết định trả đáp án hay bỏ câu.
 - **Ép kiểu** (`answer.py`): đưa đáp án về đúng kiểu và định dạng đầu ra.
+
+## Ngoài pipeline thi
+
+- **Chế độ online** (`src/datamate/service/`): `Engine` dựng split tạm cho một thư mục shop bất kỳ rồi gọi đúng
+  `build_context` + `solve` như chế độ thi. Engine chạy trong worker `spawn` một thread, vì sandbox fork tiến trình con.
+  API FastAPI (`/ask`, `/ask/upload`, stream SSE từng bước qua hook `on_event` của solver), UI Streamlit,
+  `docker-compose.yml` với image riêng không có vLLM.
+- **Observability** (`obs.py`): `MeteredLLM` bọc client LLM để đo token, chi phí, độ trễ theo loại lời gọi. Mỗi câu
+  ghi một sự kiện JSON phẳng vào `events.jsonl`. Langfuse bật khi có khoá. Xem [`observability.md`](observability.md).
+- **Eval** (`scripts/eval.py`, `tests/synth_split.py`, `tests/fake_llm.py`): eval trên dữ liệu thật có baseline và
+  ngưỡng tụt điểm. Trên CI dùng split synthetic với LLM giả, mỗi câu có kết quả kỳ vọng.
+- **Phân tích lỗi** (`analysis.py`, `scripts/error_report.py`): xếp mỗi câu không đúng vào một nhóm nguyên nhân dựa
+  trên trace.
