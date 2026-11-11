@@ -26,5 +26,10 @@ jobs:
       - name: Pytest (shop synthetic + LLM giả, không cần mạng tới LLM)
         run: uv run pytest -q
 
-      - name: Kiểm cú pháp entrypoint Docker
-        run: bash -n docker/run.sh
+      - name: Eval synthetic (scripts/run.py + LLM giả, mỗi câu khớp kỳ vọng)
+        run: uv run python scripts/eval.py --synthetic
+
+      - name: Smoke entrypoint thi (docker/run.sh, không vLLM, LLM giả)
+        run: |
+          bash -n docker/run.sh
+          bash scripts/smoke_entrypoint.sh
