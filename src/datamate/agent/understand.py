@@ -70,14 +70,16 @@ def out_of_range(start: pd.Timestamp, end: pd.Timestamp, data_start, data_end, t
     return bool(hi is not None and start > hi)
 
 
+def _day(d) -> str:
+    """'YYYY-MM-DD', hoặc '?' khi shop không có mốc đó (README không ghi ngày cuối dữ liệu)."""
+    return "?" if d is None or pd.isna(d) else f"{pd.Timestamp(d):%Y-%m-%d}"
+
+
 def period_unanswerable(question: str, data_start, data_end, today) -> str | None:
     """Lý do nếu một kỳ ghi rõ trong câu hỏi nằm hoàn toàn ngoài dữ liệu, ngược lại None."""
     for label, s, e in explicit_periods(question):
         if out_of_range(s, e, data_start, data_end, today):
-            return (
-                f"kỳ {label} nằm ngoài khoảng dữ liệu "
-                f"{pd.Timestamp(data_start):%Y-%m-%d} → {pd.Timestamp(data_end):%Y-%m-%d}"
-            )
+            return f"kỳ {label} nằm ngoài khoảng dữ liệu {_day(data_start)} → {_day(data_end)}"
     return None
 
 
