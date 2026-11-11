@@ -180,6 +180,15 @@ def shop_questions(biz: str, O: pd.DataFrame, L: pd.DataFrame) -> list[dict]:
         _q(question="Doanh thu tháng 3/2026 đạt bao nhiêu?", type="number", answer=rev[3],
              helper="o = dm.orders()\nTYPE = 'number'\nANSWER = dm.revenue(o, thang_ba)", periods=[_m(3)],
              caps=rev_cap, sql_answer=None, expect="abstain", category="codegen_error"),
+        # Mọi cơ chế lỗi sau mọi lần sửa → không có đáp án hợp lệ → abstain (nhóm "codegen lỗi" của báo cáo lỗi).
+        _q(question="Doanh thu tháng 2/2026 của shop là bao nhiêu tiền?", type="number", answer=rev[2],
+           helper="TYPE = 'number'\nANSWER = dm.revenue(o, p)", periods=[_m(2)], caps=rev_cap,
+           pandas_code="ANSWER = tables['KhongCo']", sql_answer=None, expect="abstain", category="all_fail"),
+        # Hai cơ chế cùng trả tỉ lệ dạng số thập phân, type number thay vì percent → sai type (nhóm "hiểu sai câu hỏi").
+        _q(question="Tháng 1/2026 tỉ lệ huỷ đơn là bao nhiêu?", type="percent", answer=cancel1,
+           helper=_hp(_m(1), "TYPE = 'number'\nANSWER = round(dm.cancel_rate(o, p) / 100, 4)"), periods=[_m(1)],
+           caps=rev_cap, pandas_code=_literal("number", round(cancel1 / 100, 4)), expect="wrong",
+           category="wrong_type"),
     ]  # fmt: skip
     out = []
     for i, q in enumerate(qs, 1):
@@ -197,7 +206,7 @@ def shop_questions(biz: str, O: pd.DataFrame, L: pd.DataFrame) -> list[dict]:
             item["understand"] = _understand(q["question"], typ, q["periods"], q["caps"])
             item["helper"] = q["helper"]
             pa = q.get("pandas_answer", ans)
-            item["pandas"] = _literal(typ, pa)
+            item["pandas"] = q.get("pandas_code") or _literal(typ, pa)
             sa = q.get("sql_answer", ans)
             item["sql"] = _literal(typ, sa) if sa is not None else "ANSWER = khong_co_bien"
         out.append(item)
