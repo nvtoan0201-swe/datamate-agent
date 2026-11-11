@@ -30,6 +30,7 @@ from datamate.agent.context import build_context
 from datamate.agent.llm import LLM
 from datamate.agent.solver import SolverConfig, solve
 from datamate.agent.verifier import VerifierConfig
+from datamate.obs import MeteredLLM, append_event, get_tracer, question_event
 from datamate.rules import check_rulebook, split_rules
 
 
@@ -68,7 +69,8 @@ _W: dict = {}
 def _init_worker(state: dict) -> None:
     _W.clear()
     _W.update(state)
-    _W["llm"] = LLM()
+    # MeteredLLM chuyển nguyên lời gọi, chỉ đo token / độ trễ (obs.py); tracer rỗng trừ khi bật Langfuse.
+    _W["llm"] = MeteredLLM(LLM(), tracer=get_tracer())
     _W["ctx"] = {}
 
 
@@ -181,8 +183,16 @@ def _solve_task(q: dict) -> tuple:
             {"id": q["id"], "decision": "skipped", "path": "skipped" if over else "load_error"},
             info,
         )
+    llm = _W["llm"]
+    llm.reset()
     try:
-        row, trace = solve(_W["llm"], ctx, q, _W["cfg"])
+        with llm.tracer.span(
+            "question", input=q, metadata={"business_id": q["business_id"]}
+        ) as span:
+            row, trace = solve(llm, ctx, q, _W["cfg"])
+            trace["llm_usage"] = llm.summary()
+            span.update(output=row, metadata={"reason_code": trace.get("reason_code")})
+        llm.tracer.flush()
     except Exception as e:  # noqa: BLE001 — một câu lỗi không làm dừng cả lần chạy
         info = info + [
             (logging.ERROR, f"[{q['business_id']}] {q['id']} lỗi\n{traceback.format_exc()}")
@@ -368,6 +378,10 @@ def main() -> int:
         "deadline": args.deadline_hours,
     }
     n = 0
+    events_path = (
+        out / "events.jsonl"
+    )  # một dòng JSON mỗi câu (obs.question_event), nguồn cho dashboard
+    run_id = time.strftime("%Y%m%d-%H%M%S", time.localtime(t_start))
     with sub_path.open("a", encoding="utf-8") as sub:
 
         def write(res: tuple) -> None:
@@ -381,6 +395,14 @@ def main() -> int:
             (out / "traces" / f"{q['id']}.json").write_text(
                 json.dumps(trace, ensure_ascii=False, indent=1, default=str), encoding="utf-8"
             )
+            ev = question_event(
+                {"business_id": q["business_id"], "as_of_date": q["as_of_date"], **trace},
+                row,
+                mode="batch",
+                model=llm.cfg.model,
+                run_id=run_id,
+            )
+            append_event(events_path, ev)
             log.info(
                 "%d/%d %s %s %s → %s %s [%s] (%.0fs)",
                 n,
@@ -429,6 +451,10 @@ def main() -> int:
                     json.dumps({"id": q["id"], "decision": "filled", "path": "filled"}),
                     encoding="utf-8",
                 )
+                filled = {"id": q["id"], "business_id": q["business_id"], "as_of_date": q["as_of_date"],
+                          "decision": "filled", "path": "filled"}  # fmt: skip
+                append_event(events_path, question_event(filled, {"id": q["id"], "type": "abstain"},
+                                                         mode="batch", model=llm.cfg.model, run_id=run_id))  # fmt: skip
             sub.flush()
             log.info("điền abstain cho %d câu chưa chạy", len(missing))
     log.info("xong sau %.1f phút", (time.time() - t_start) / 60)

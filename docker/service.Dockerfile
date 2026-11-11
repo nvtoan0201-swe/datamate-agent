@@ -9,9 +9,9 @@ WORKDIR /app
 ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1 UV_PYTHON_DOWNLOADS=never \
     PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1
 COPY pyproject.toml uv.lock README.md ./
-RUN uv sync --frozen --no-dev --extra service --extra ui --no-install-project
+RUN uv sync --frozen --no-dev --extra service --extra ui --extra obs --no-install-project
 COPY src ./src
-RUN uv sync --frozen --no-dev --extra service --extra ui
+RUN uv sync --frozen --no-dev --extra service --extra ui --extra obs
 
 # Sandbox chạy code do LLM viết: không chạy bằng root.
 RUN useradd --create-home --uid 1000 app && mkdir -p /cache && chown app /cache

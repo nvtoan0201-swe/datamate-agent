@@ -229,6 +229,9 @@ def run_synthetic(args) -> int:
         if llm.calls["unknown"]
         else {}
     )
+    events = read_jsonl(out / "events.jsonl") if (out / "events.jsonl").exists() else []
+    if sorted(e["question_id"] for e in events) != ids:
+        extra_bad["_events"] = f"events.jsonl có {len(events)} dòng, cần đúng một dòng mỗi câu ({len(ids)})"
     return check_expect(res, script["expect"], extra_bad)
 
 
