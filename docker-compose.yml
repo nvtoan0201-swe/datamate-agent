@@ -1,0 +1,47 @@
+# Chế độ online: API (FastAPI) + UI (Streamlit), gọi LLM qua endpoint tương thích OpenAI.
+# Tách biệt hoàn toàn với chế độ thi (Dockerfile + docker/run.sh, vLLM offline, --network none).
+#
+#   cp .env.example .env    # điền LLM_BASE_URL, LLM_MODEL, LLM_API_KEY
+#   docker compose up --build
+#   UI: http://localhost:8501   API: http://localhost:8000/docs
+#
+# Build cần BuildKit để dùng docker/service.Dockerfile.dockerignore (context nhỏ); builder cũ dùng .dockerignore gốc
+# (image vẫn chỉ chứa pyproject, uv.lock, README, src/).
+# Thư mục ./data (hoặc DATA_DIR) được mount chỉ đọc vào /data: POST /ask {"data_dir": "<thư mục shop trong đó>"}.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/service.Dockerfile
+    image: datamate-service:latest
+    env_file:
+      - path: .env
+        required: false
+    # LLM_BASE_URL, LLM_MODEL, LLM_API_KEY (và LLM_EXTRA_BODY…) đọc từ .env; GET /health báo đã có LLM_BASE_URL chưa.
+    environment:
+      DATAMATE_WORKERS: ${DATAMATE_WORKERS:-2}
+    volumes:
+      - ${DATA_DIR:-./data}:/data:ro
+      - datamate-cache:/cache
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  ui:
+    image: datamate-service:latest
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      DATAMATE_API_URL: http://api:8000
+    command: ["streamlit", "run", "src/datamate/service/ui.py", "--server.address=0.0.0.0", "--server.port=8501",
+              "--browser.gatherUsageStats=false"]
+    ports:
+      - "8501:8501"
+
+volumes:
+  datamate-cache:
