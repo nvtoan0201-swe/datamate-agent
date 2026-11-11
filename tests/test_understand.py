@@ -166,3 +166,9 @@ def test_derivable_from_time():
     assert derivable_from_time("ca bán của đơn", with_hours)
     assert not derivable_from_time("ca bán của đơn", dates_only)
     assert not derivable_from_time("kênh bán", with_hours)
+
+
+def test_period_unanswerable_without_data_end():
+    # README không ghi ngày cuối dữ liệu (data_end None): vẫn báo kỳ trước dữ liệu, không crash khi định dạng lý do.
+    r = period_unanswerable("doanh thu tháng 6/2025", pd.Timestamp("2026-01-01"), None, "2026-04-15")
+    assert r and "→ ?" in r
