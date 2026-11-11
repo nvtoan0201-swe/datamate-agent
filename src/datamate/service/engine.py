@@ -28,6 +28,7 @@ import pandas as pd
 from datamate.agent.context import build_context
 from datamate.agent.solver import ShopContext, SolverConfig, solve
 from datamate.answer import answer_key
+from datamate.obs import MeteredLLM, append_event, event_logger, get_tracer, question_event
 from datamate.rules import check_rulebook, split_rules
 from datamate.service import DEFAULT_RULEBOOK
 
@@ -60,6 +61,8 @@ class EngineConfig:
     )
     k_plan: int = 3
     max_shops: int = 4  # số shop giữ ngữ cảnh trong bộ nhớ mỗi tiến trình
+    # Sự kiện JSON mỗi câu (obs.question_event); mặc định <cache_dir>/events.jsonl. Ghi thêm một dòng log JSON ra stderr.
+    events_log: Path | None = field(default_factory=lambda: _env_path("DATAMATE_EVENTS_LOG"))
     solver: SolverConfig = field(default_factory=lambda: SolverConfig(pipeline="v2"))
 
 
@@ -111,17 +114,6 @@ def latest_date(tables: dict) -> pd.Timestamp | None:
     return pd.Timestamp(best).normalize() if best is not None else None
 
 
-def _usage(trace: dict) -> dict:
-    n_in = n_out = calls = 0
-    for c in trace.get("candidates") or []:
-        for a in c.get("attempts") or []:
-            u = a.get("usage") or {}
-            n_in += u.get("prompt_tokens") or 0
-            n_out += u.get("completion_tokens") or 0
-            calls += 1
-    return {"codegen_calls": calls, "prompt_tokens": n_in, "completion_tokens": n_out}
-
-
 def build_result(q: dict, row: dict, trace: dict, ctx: ShopContext | None) -> dict:
     """Kết quả trả cho API / UI từ dòng nộp + trace của solver."""
     cands = trace.get("candidates") or []
@@ -156,7 +148,7 @@ def build_result(q: dict, row: dict, trace: dict, ctx: ShopContext | None) -> di
         "understand": trace.get("understand"),
         "timings": trace.get("timings"),
         "seconds": trace.get("seconds"),
-        "usage": _usage(trace),
+        "usage": trace.get("llm_usage"),
         "shop": {
             "id": ctx.biz_id,
             "tables": {n: list(map(str, df.columns)) for n, df in ctx.tables.items()},
@@ -178,7 +170,7 @@ class Engine:
             from datamate.agent.llm import LLM
 
             llm = LLM()
-        self.llm = llm
+        self.llm = MeteredLLM(llm, tracer=get_tracer())
         self.rulebook = (self.cfg.rulebook or DEFAULT_RULEBOOK).read_text(encoding="utf-8")
         self.rules = check_rulebook(self.rulebook)
         self.rule_index = split_rules(self.rulebook)
@@ -221,13 +213,15 @@ class Engine:
             },
         )
         split, biz = self._workspace(data_dir, fp)
+        self.llm.reset()
         ctx, graph = build_context(
             split, biz, self.llm, self.rulebook, self.rules, self.rule_index,
             cache_dir=self.cfg.cache_dir, semantic="v2", k_plan=self.cfg.k_plan,
         )  # fmt: skip
         caps = {n: c.status for n, c in graph.capabilities.items()} if graph is not None else {}
         emit("graph", {"shop": biz, "mapping_ok": ctx.mapping_ok, "tables": len(ctx.tables),
-                       "capabilities": caps, "seconds": round(time.time() - t0, 2)})  # fmt: skip
+                       "capabilities": caps, "seconds": round(time.time() - t0, 2),
+                       "llm_usage": self.llm.summary()})  # fmt: skip
         self._ctx[fp] = ctx
         while len(self._ctx) > self.cfg.max_shops:
             self._ctx.popitem(last=False)
@@ -247,5 +241,14 @@ class Engine:
         as_of_date = f"{pd.Timestamp(as_of_date):%Y-%m-%d}"  # kiểm tra định dạng ngày
         q = {"id": uuid.uuid4().hex[:12], "business_id": ctx.biz_id, "question": question,
              "as_of_date": as_of_date}  # fmt: skip
-        row, trace = solve(self.llm, ctx, q, self.cfg.solver, on_event=emit)
+        self.llm.reset()
+        tracer = self.llm.tracer
+        with tracer.span("question", input=q, metadata={"mode": "service"}) as span:
+            row, trace = solve(self.llm, ctx, q, self.cfg.solver, on_event=emit)
+            trace["llm_usage"] = self.llm.summary()
+            span.update(output=row, metadata={"reason_code": trace.get("reason_code")})
+        tracer.flush()
+        ev = question_event(trace, row, mode="service", model=getattr(self.llm.cfg, "model", ""))
+        append_event(self.cfg.events_log or self.cfg.cache_dir / "events.jsonl", ev)
+        event_logger().info("question", extra={"event": ev})
         return build_result(q, row, trace, ctx)
