@@ -1,5 +1,5 @@
 # Lệnh phát triển. Dữ liệu thật không có trong repo: đặt DATAMATE_DEV_SPLIT trỏ tới split có answers.jsonl.
-.PHONY: help sync lint test eval eval-synth smoke check
+.PHONY: help sync lint test eval eval-synth smoke check serve ui up
 
 DEV_SPLIT ?= $(DATAMATE_DEV_SPLIT)
 PER_SHOP ?= 5
@@ -15,6 +15,9 @@ help:
 	@echo "make eval-synth  eval synthetic qua scripts/run.py với LLM giả (như CI)"
 	@echo "make smoke       chạy entrypoint thi docker/run.sh với LLM giả"
 	@echo "make check       lint + test + eval-synth + smoke"
+	@echo "make serve       API online (uvicorn, cổng 8000; cần LLM_BASE_URL/LLM_MODEL)"
+	@echo "make ui          UI Streamlit (cổng 8501) gọi API ở DATAMATE_API_URL"
+	@echo "make up          docker compose up --build (API + UI, đọc .env)"
 
 sync:
 	uv sync
@@ -36,3 +39,12 @@ smoke:
 	bash scripts/smoke_entrypoint.sh
 
 check: lint test eval-synth smoke
+
+serve:
+	uv run --extra service uvicorn --factory datamate.service.api:create_app --port 8000
+
+ui:
+	uv run --extra ui streamlit run src/datamate/service/ui.py
+
+up:
+	docker compose up --build
