@@ -461,8 +461,25 @@ def _decide(
     )
 
 
-def solve(llm: LLM, ctx: ShopContext, q: dict, cfg: SolverConfig) -> tuple[dict, dict]:
-    """Trả về (dòng submission, trace)."""
+def _no_event(kind: str, data: dict) -> None:
+    pass
+
+
+def candidate_event(c: Candidate) -> dict:
+    """Tóm tắt một lời giải để báo từng bước (service): bỏ nguyên văn các lần gọi LLM."""
+    d = _cand_trace(c)
+    d["attempts"] = len(c.attempts)
+    return d
+
+
+def solve(
+    llm: LLM, ctx: ShopContext, q: dict, cfg: SolverConfig, on_event=None
+) -> tuple[dict, dict]:
+    """Trả về (dòng submission, trace).
+
+    `on_event(kind, data)`: tuỳ chọn, gọi sau mỗi bước ('precheck', 'understand', 'mechanism', 'verifier') để báo
+    tiến trình (chế độ service). Không ảnh hưởng kết quả hay trace."""
+    emit = on_event or _no_event
     t0 = time.time()
     pre = classify(
         q["question"],
@@ -472,6 +489,7 @@ def solve(llm: LLM, ctx: ShopContext, q: dict, cfg: SolverConfig) -> tuple[dict,
     )
     if pre and pre[0] == "abstain" and cfg.near_miss == "unanswerable":
         pre = ("unanswerable", pre[1])
+    emit("precheck", {"result": pre[0] if pre else None, "reason": pre[1] if pre else None})
     if pre:
         kind, reason = pre
         row = (
@@ -493,6 +511,7 @@ def solve(llm: LLM, ctx: ShopContext, q: dict, cfg: SolverConfig) -> tuple[dict,
             "seconds": 0,
         }
     u = understand(llm, ctx, q, use_llm=cfg.understand, use_caps=cfg.understand_caps)
+    emit("understand", u.to_dict())
     if u.period_out:
         row = {"id": q["id"], "type": "unanswerable", "reason": u.period_out}
         return row, {
@@ -508,8 +527,11 @@ def solve(llm: LLM, ctx: ShopContext, q: dict, cfg: SolverConfig) -> tuple[dict,
             "seconds": round(time.time() - t0, 2),
         }
     if cfg.pipeline == "v2":
-        return _solve_v2(llm, ctx, q, cfg, u, t0)
-    cands = [_run_candidate(llm, ctx, q, v, cfg, u) for v in range(cfg.k)]
+        return _solve_v2(llm, ctx, q, cfg, u, t0, emit)
+    cands = []
+    for v in range(cfg.k):
+        cands.append(_run_candidate(llm, ctx, q, v, cfg, u))
+        emit("mechanism", candidate_event(cands[-1]))
     row, decision, path, flags = decide(q, cands, cfg, ctx, signal=u.unanswerable_signal)
     trace = {
         "id": q["id"],
@@ -607,22 +629,34 @@ def _cand_trace(c: Candidate) -> dict:
     }
 
 
-def _solve_v2(llm: LLM, ctx: ShopContext, q: dict, cfg: SolverConfig, u: Understanding, t0: float):
+def _solve_v2(
+    llm: LLM,
+    ctx: ShopContext,
+    q: dict,
+    cfg: SolverConfig,
+    u: Understanding,
+    t0: float,
+    emit=_no_event,
+):
     """Chạy các cơ chế giải khác nhau (mặc định helper + pandas), verifier quyết định; cơ chế thứ ba chỉ khi hai cái
     đầu bất đồng hoặc verifier nghi. Ghi thời gian từng giai đoạn vào trace."""
     timings = {"understand": round(time.time() - t0, 2)}
     needs = list(getattr(u, "capabilities", []) or [])
-    cands = [
-        _run_candidate(llm, ctx, q, i, cfg, u, mechanism=m) for i, m in enumerate(cfg.mechanisms)
-    ]
+    cands = []
+    for i, m in enumerate(cfg.mechanisms):
+        cands.append(_run_candidate(llm, ctx, q, i, cfg, u, mechanism=m))
+        emit("mechanism", candidate_event(cands[-1]))
     for c in cands:
         timings[c.mechanism] = c.seconds
     v = verify(q, cands, ctx, cfg.verifier, needs)
     if v.need_more and cfg.third and cfg.third not in cfg.mechanisms:
+        emit("verifier", {"decision": v.decision, "checks": v.checks, "need_more": True})
         c3 = _run_candidate(llm, ctx, q, len(cands), cfg, u, mechanism=cfg.third)
+        emit("mechanism", candidate_event(c3))
         timings[c3.mechanism] = c3.seconds
         cands.append(c3)
         v = verify(q, cands, ctx, cfg.verifier, needs)
+    emit("verifier", {"decision": v.decision, "checks": v.checks, "need_more": False})
     row, decision = v.row, v.decision
     signal = u.unanswerable_signal
     from datamate.agent.verifier import has_data_answer
