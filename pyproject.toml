@@ -23,6 +23,10 @@ ui = [
     "streamlit>=1.38",
     "requests>=2.31",
 ]
+# Tracing Langfuse (bật khi có LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY).
+obs = [
+    "langfuse>=3",
+]
 
 [dependency-groups]
 dev = [
