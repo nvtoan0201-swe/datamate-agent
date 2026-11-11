@@ -133,9 +133,10 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("script")
     ap.add_argument("--port", type=int, default=8011)
+    ap.add_argument("--host", default="127.0.0.1", help="0.0.0.0 để container gọi được")
     a = ap.parse_args()
-    srv, _ = serve(a.script, port=a.port)
-    print(f"fake LLM: http://127.0.0.1:{srv.server_address[1]}/v1", flush=True)
+    srv, _ = serve(a.script, host=a.host, port=a.port)
+    print(f"fake LLM: http://{a.host}:{srv.server_address[1]}/v1", flush=True)
     try:
         while True:
             time.sleep(3600)

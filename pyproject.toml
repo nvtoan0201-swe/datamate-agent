@@ -12,10 +12,25 @@ dependencies = [
     "openai>=3.41.0",
 ]
 
+[project.optional-dependencies]
+# Chế độ online (API + UI). Image thi (Dockerfile, `uv sync --no-dev`) không cài các extras này.
+service = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "python-multipart>=0.0.9",
+]
+ui = [
+    "streamlit>=1.38",
+    "requests>=2.31",
+]
+
 [dependency-groups]
 dev = [
     "pytest>=8",
     "ruff>=0.6",
+    # test API service
+    "fastapi>=0.115",
+    "python-multipart>=0.0.9",
 ]
 
 [build-system]

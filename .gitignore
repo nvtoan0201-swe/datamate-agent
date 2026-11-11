@@ -20,3 +20,6 @@ __MACOSX/
 
 # Khoá API, không commit
 .env
+
+# Dữ liệu shop cho chế độ online (docker compose mount ./data): không commit dữ liệu cuộc thi / dữ liệu thật
+/data/

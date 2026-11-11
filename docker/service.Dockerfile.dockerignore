@@ -1,0 +1,7 @@
+# Build context của image online: chỉ cần pyproject, uv.lock, README, src/.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!src/
+**/__pycache__

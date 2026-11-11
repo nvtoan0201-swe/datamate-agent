@@ -25,47 +25,13 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent))
 from helpers import DEFAULT_STATUSES, correct_plan, make_orders, write_shop
 
+from datamate.service import DEFAULT_RULEBOOK
+
 AS_OF = "2026-04-15"
 
-# Rulebook tự viết cho split synthetic (không phải rulebook cuộc thi). Chứa neo của các luật mà hàm dm cần
-# (datamate.rules.RULE_ANCHORS), để hàm không bị tắt.
-RULEBOOK = """\
-# Rulebook (synthetic)
-
-## §1 Đơn hàng và doanh thu
-
-| Luật | Nội dung |
-|---|---|
-| Trạng thái | Mỗi đơn có đúng một trong các trạng thái **hoàn thành**, **huỷ**, **trả hàng**, **đang giao**. |
-| Doanh thu | Tổng tiền hàng của các đơn không huỷ, không trả; đơn đang giao vẫn tính. Doanh thu một đơn không trừ giảm giá cả đơn, không cộng thuế VAT, không gồm phí giao hàng. |
-| Đơn trả | Đơn có dòng trả hàng, kể cả chỉ trả một phần, thì bỏ cả đơn khỏi doanh thu và số đơn. |
-| Số đơn | Số đơn không huỷ, không trả. |
-| Tỉ lệ huỷ | Tỉ lệ đơn huỷ = số đơn huỷ / mọi đơn đặt trong kỳ (mọi trạng thái), tính theo %. |
-| Khách lẻ | Đơn không ghi khách hoặc ghi khách lẻ không tính là một khách. |
-
-## §2 Thời gian
-
-| Luật | Nội dung |
-|---|---|
-| Tuần | Tuần bắt đầu thứ hai. Tuần này: từ thứ hai của tuần chứa hôm nay đến hết hôm nay. Tuần trước, tuần rồi: cả tuần liền trước, thứ hai đến chủ nhật. |
-| Tháng này | Tháng này: từ ngày 1 đến hết hôm nay; so sánh với tháng trước lấy cùng số ngày, đến ngày trùng số với hôm nay. |
-| Tháng không ghi năm | Tháng không ghi năm: năm nay, nếu tháng đó sau hôm nay thì của năm trước. |
-| N ngày | N ngày gần nhất: N ngày liền nhau kể cả hôm nay. |
-| Từ đầu năm | Từ đầu năm: từ ngày 1/1 đến hết hôm nay. |
-| Đến hết ngày | Đến hết ngày X: từ đầu dữ liệu đến hết ngày X. |
-| Ca | Ca sáng 06:00-13:59, ca chiều 14:00-21:59. |
-| Tết | Tết: từ 23 tháng Chạp đến hết mùng 10 tháng Giêng (âm lịch). |
-| Trước Tết | So với trước Tết: cùng số ngày ngay trước 23 tháng Chạp. |
-
-## §3 Số và xếp hạng
-
-| Luật | Nội dung |
-|---|---|
-| Tiền | Làm tròn về đồng, nửa đồng làm tròn lên. |
-| Phần trăm | Làm tròn 2 chữ số thập phân. Thay đổi so với kỳ trước: (mới − cũ) / cũ; giảm thì ra số âm. |
-| Bằng nhau | Xếp hạng bằng nhau thì theo mã tăng dần (không có mã thì theo tên). |
-| Tuổi nợ | Tuổi nợ tính từ ngày đặt đơn. |
-"""
+# Rulebook tự viết (không phải rulebook cuộc thi), dùng chung với chế độ service. Chứa neo của các luật mà hàm dm
+# cần (datamate.rules.RULE_ANCHORS), để hàm không bị tắt.
+RULEBOOK = DEFAULT_RULEBOOK.read_text(encoding="utf-8")
 
 # Shop B: cùng loại dữ liệu, tên cột / nhãn trạng thái / định dạng khác (loader và planner phải chịu được).
 NAMES_B = {"order": "Mã phiếu", "date": "Ngày bán", "time": "Giờ bán", "customer": "Khách hàng",
