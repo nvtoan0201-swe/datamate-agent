@@ -304,6 +304,7 @@ def main() -> int:
         secs = run_pipeline(split, run_dir, ids, args.workers, shlex.split(args.run_args))
         sub = run_dir / "submission.jsonl"
     res = evaluate(split, sub, ids)
+    print(f"\nBáo cáo lỗi: make report RUN={sub.parent}")
     print_report(res)
     if args.expect:
         return check_expect(res, json.loads(args.expect.read_text(encoding="utf-8"))["expect"])
