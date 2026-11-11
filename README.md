@@ -29,7 +29,6 @@ chứng. Khi các cách giải không khớp nhau hoặc dữ liệu không có 
 - [Triển khai và bảo mật](#triển-khai-và-bảo-mật)
 - [Chế độ batch (cuộc thi, offline)](#chế-độ-batch-cuộc-thi-offline)
 - [Phát triển](#phát-triển)
-- [Giới hạn đã biết](#giới-hạn-đã-biết)
 
 ## Tính năng
 
@@ -217,8 +216,7 @@ Mỗi thay đổi được kiểm ở ba tầng:
 | Eval dữ liệu thật (local) | `make eval` | PA tổng / theo type / theo reason_code, so với baseline, fail khi tụt quá ngưỡng |
 
 Eval synthetic có các câu cài lỗi có chủ đích: cơ chế pandas sai mà SQL đúng (phải trả lời theo 2/3), ba cơ chế bất
-đồng (phải bỏ), mọi cơ chế lỗi (phải bỏ), và hai lỗi biết trước là verifier để lọt (xem
-[Giới hạn đã biết](#giới-hạn-đã-biết)). Đổi logic verifier hay reconcile mà làm lệch kết quả của bất kỳ câu nào là CI fail.
+đồng (phải bỏ), mọi cơ chế lỗi (phải bỏ). Đổi logic verifier hay reconcile mà làm lệch kết quả của bất kỳ câu nào là CI fail.
 
 ```bash
 export DATAMATE_DEV_SPLIT=/path/to/labeled_split   # dữ liệu có nhãn, không nằm trong repo
@@ -347,19 +345,6 @@ docker/           run.sh (batch), service.Dockerfile (service)
 ```
 
 Kiến trúc chi tiết: [`docs/architecture.md`](docs/architecture.md).
-
-## Giới hạn đã biết
-
-Cả hai lỗi dưới đây đều có câu tương ứng trong eval synthetic. Chúng hiện được đánh dấu "kỳ vọng sai", nên sửa xong sẽ
-thấy ngay.
-
-- **Lỗi tương quan.** Hai cơ chế có thể cùng hiểu sai một luật theo cùng một kiểu, ví dụ cùng đếm cả đơn huỷ. Khi đó
-  chúng khớp nhau và verifier để lọt.
-- **Type đáp án.** Verifier chưa so type đáp án với type mà bước hiểu câu hỏi dự đoán. Nếu hai cơ chế cùng trả tỉ lệ
-  `0.1129` kiểu `number` thì vẫn qua, trong khi câu hỏi cần `percent` 11.29.
-- **Phạm vi.** Agent được thiết kế cho dữ liệu bán hàng của shop nhỏ (đơn, dòng hàng, khách, thanh toán, nhập hàng).
-  Ngành mới vẫn chạy được qua cơ chế pandas, nhưng ngưỡng đồng thuận chặt hơn nên tỉ lệ bỏ câu cao hơn.
-- **Lịch âm.** Bản mặc định chỉ có dương lịch: câu hỏi về Tết trả `unanswerable` cho đến khi đặt `DATAMATE_CALENDAR`.
 
 ## Giấy phép
 
